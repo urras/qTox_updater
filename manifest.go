@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha1"
+	"encoding/hex"
 	"io/ioutil"
 	"os"
 )
@@ -17,7 +18,7 @@ func obj2byte(obj *File_data) []byte {
 	obj_byte := make([]byte, 0)
 	obj_byte = append(obj_byte, uint8(len(obj.Name)))
 	obj_byte = append(obj_byte, []byte(obj.Name)...)
-	obj_byte = append(obj_byte, uint8(len(obj.Hash)))
+	obj_byte = append(obj_byte, uint8(20)) //This is static, otherwise the base conversion would fuck this up
 	obj_byte = append(obj_byte, []byte(obj.Hash)...)
 	obj_byte = append(obj_byte, obj.Buildnum)
 
@@ -81,6 +82,34 @@ func iter(path string, size int) int {
 	return 1
 }
 
+func parse_iter(obj []byte) {
+	name_size := obj[0]
+	name := string(obj[1 : name_size+1])
+	hash_size := obj[name_size+1]
+	hash := hex.EncodeToString(obj[name_size+2 : hash_size+2+name_size])
+	buildnum := obj[hash_size+2+name_size]
+	//file_obj := File_data{name, hash, buildnum} //comented because otherwise fmt would wipe it, works perfect
+
+	if obj[hash_size+3+name_size] != 127 {
+		parse_iter(obj[hash_size+3+name_size : len(obj)])
+	}
+}
+
+func parse(obj []byte) uint8 {
+	if string([]byte{0xC, 0xA, 0xF, 0xE, 0xB, 0xA, 0xB, 0xE}) != string(obj[0:8]) {
+		fmt.Println("Invalid magic number")
+		return 0
+	} else {
+		if obj[len(obj)-1] != 127 {
+			fmt.Println("ETX missing")
+			return 0
+		} else {
+			parse_iter(obj[8:len(obj)])
+			return 1
+		}
+	}
+}
+
 func main() {
 
 	path := "payload/"
@@ -90,9 +119,11 @@ func main() {
 		fmt.Println("No folder found")
 		return
 	}
-	obj_list = append(obj_list, 0x3)
+	obj_list = append(obj_list, 127)
 
 	ioutil.WriteFile("manifest", obj_list, 0644)
 	fmt.Println("Saved manifest")
-
+	if parse(obj_list) != 1 {
+		fmt.Println("validation failed")
+	}
 }
