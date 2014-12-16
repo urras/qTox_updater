@@ -1,6 +1,6 @@
 The manifest format is fairly simple.
 
-``[(magic number){0xC, 0xA, 0xF, 0xE, 0xB, 0xA, 0xB, 0xE}][(size of next item) uint8][File_data.Name string][(size of next item) uint8][File_data.Hash (sha1) string][File_data.Buildnumber uint8]``
+``[(magic number){0xCA, 0xFE, 0xBA, 0xBE}][(size of next item) uint8][File_data.Name string][(size of next item) uint8][File_data.Hash (sha1) string][File_data.Buildnumber uint8]``
 
 Note: SHA1 hashes are the same size always and I don't see build numbers going out of control, but a file with a name over 255 characters isn't impossible.
 
