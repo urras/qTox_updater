@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/sha1"
-	"encoding/hex"
 	"io/ioutil"
 	"os"
 )
@@ -11,7 +10,7 @@ import "fmt"
 type File_data struct {
 	Name     string
 	Hash     string
-	Buildnum string
+	Buildnum uint8
 }
 
 func obj2byte(obj *File_data) []byte {
@@ -20,8 +19,7 @@ func obj2byte(obj *File_data) []byte {
 	obj_byte = append(obj_byte, []byte(obj.Name)...)
 	obj_byte = append(obj_byte, uint8(len(obj.Hash)))
 	obj_byte = append(obj_byte, []byte(obj.Hash)...)
-	obj_byte = append(obj_byte, uint8(len(obj.Buildnum)))
-	obj_byte = append(obj_byte, []byte(obj.Buildnum)...)
+	obj_byte = append(obj_byte, obj.Buildnum)
 
 	return obj_byte
 }
@@ -64,9 +62,8 @@ func iter(path string, size int) int {
 
 			hash.Write([]byte(f))
 			hash_raw := hash.Sum(nil)
-			hash_str := hex.EncodeToString(hash_raw)
 
-			file_obj := File_data{current[size:len(current)], hash_str, "0"}
+			file_obj := File_data{current[size:len(current)], string(hash_raw), 0}
 
 			obj_list = append(obj_list, obj2byte(&file_obj)...)
 
@@ -95,6 +92,7 @@ func main() {
 	}
 	obj_list = append(obj_list, 0x3)
 
-	fmt.Println(obj_list)
+	ioutil.WriteFile("manifest", obj_list, 0644)
+	fmt.Println("Saved manifest")
 
 }
