@@ -3,16 +3,30 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"encoding/json"
 	"io/ioutil"
 	"os"
 )
 import "fmt"
 
 type File_data struct {
-	Name string
-	Hash string
+	Name     string
+	Hash     string
+	Buildnum string
 }
+
+func obj2byte(obj *File_data) []byte {
+	obj_byte := make([]byte, 0)
+	obj_byte = append(obj_byte, uint8(len(obj.Name)))
+	obj_byte = append(obj_byte, []byte(obj.Name)...)
+	obj_byte = append(obj_byte, uint8(len(obj.Hash)))
+	obj_byte = append(obj_byte, []byte(obj.Hash)...)
+	obj_byte = append(obj_byte, uint8(len(obj.Buildnum)))
+	obj_byte = append(obj_byte, []byte(obj.Buildnum)...)
+
+	return obj_byte
+}
+
+var obj_list []byte
 
 func fs_type(path string) int {
 	f, err := os.Open(path)
@@ -52,9 +66,9 @@ func iter(path string, size int) int {
 			hash_raw := hash.Sum(nil)
 			hash_str := hex.EncodeToString(hash_raw)
 
-			file_obj := File_data{current[size:len(current)], hash_str}
-			file_json, _ := json.Marshal(file_obj)
-			fmt.Println(string(file_json))
+			file_obj := File_data{current[size:len(current)], hash_str, "0"}
+
+			obj_list = append(obj_list, obj2byte(&file_obj)...)
 
 		} else if fs_type(current) == 0 {
 			if iter(current+"/", size) != 1 {
@@ -66,13 +80,21 @@ func iter(path string, size int) int {
 
 		}
 	}
+
 	return 1
 }
 
 func main() {
 
 	path := "payload/"
+	obj_list = []byte{0xC, 0xA, 0xF, 0xE, 0xB, 0xA, 0xB, 0xE}
 
-	fmt.Println(iter(path, len(path)))
+	if iter(path, len(path)) == -1 {
+		fmt.Println("No folder found")
+		return
+	}
+	obj_list = append(obj_list, 0x3)
+
+	fmt.Println(obj_list)
 
 }
