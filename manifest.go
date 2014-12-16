@@ -108,6 +108,12 @@ func parse(obj []byte) uint8 {
 			fmt.Println("ESC missing")
 			return 0
 		} else {
+
+			if obj[4] == 127 {
+				fmt.Println("Warning, zero data in manifest")
+				return 1
+			}
+
 			parse_iter(obj[4:len(obj)])
 			return 1
 		}
