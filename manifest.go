@@ -18,10 +18,11 @@ type File_data struct {
 func obj2byte(obj *File_data) []byte {
 	obj_byte := make([]byte, 0)
 	obj_byte = append(obj_byte, uint8(len(obj.Name)))
-	obj_byte = append(obj_byte, []byte(obj.Name)...)
 	obj_byte = append(obj_byte, uint8(20)) //This is static, otherwise the base conversion would fuck this up
+	obj_byte = append(obj_byte, []byte(obj.Name)...)
 	obj_byte = append(obj_byte, []byte(obj.Hash)...)
 	obj_byte = append(obj_byte, obj.Buildnum)
+	obj_byte = append(obj_byte, 0x80)
 
 	return obj_byte
 }
@@ -86,20 +87,39 @@ func iter(path string, size int) int {
 
 func parse_iter(obj []byte) {
 	name_size := obj[0]
-	name := string(obj[1 : name_size+1])
-	hash_size := obj[name_size+1]
+	hash_size := obj[1]
+
+	str_len := int(name_size) + int(hash_size) + 2
+
+	if str_len > len(obj) {
+		fmt.Println("Corrupt data passed")
+		return
+	}
+
+	if obj[str_len+1] != 128 {
+		fmt.Println("Corrupt data passed")
+		return
+	}
+
+	name := string(obj[2 : name_size+2])
 	hash := hex.EncodeToString(obj[name_size+2 : hash_size+2+name_size])
 	buildnum := obj[hash_size+2+name_size]
+
 	file_obj := File_data{name, hash, buildnum}
 
 	fmt.Println(file_obj)
 
-	if obj[hash_size+3+name_size] != 127 {
-		parse_iter(obj[hash_size+3+name_size : len(obj)])
+	if obj[hash_size+4+name_size] != 127 {
+		parse_iter(obj[hash_size+4+name_size : len(obj)])
 	}
 }
 
 func parse(obj []byte) uint8 {
+
+	if len(obj) < 5 {
+		fmt.Println("Corrupt data passed")
+		return 0
+	}
 	if string([]byte{0xCA, 0xFE, 0xBA, 0xBE}) != string(obj[0:4]) {
 		fmt.Println("Invalid magic number")
 		return 0
@@ -113,7 +133,6 @@ func parse(obj []byte) uint8 {
 				fmt.Println("Warning, zero data in manifest")
 				return 1
 			}
-
 			parse_iter(obj[4:len(obj)])
 			return 1
 		}
@@ -148,7 +167,7 @@ func main() {
 			return
 		}
 
-		obj_list = append(obj_list, 127)
+		obj_list = append(obj_list, 0x7F)
 
 		ioutil.WriteFile(*opt_manifest, obj_list, 0644)
 
