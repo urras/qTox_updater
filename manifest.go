@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"flag"
@@ -124,13 +125,23 @@ func parse(obj []byte) uint8 {
 		fmt.Println("Invalid magic number")
 		return 0
 	} else {
-		if obj[len(obj)-1] != 127 {
+		if obj[len(obj)-21] != 127 {
 			fmt.Println("ESC missing")
 			return 0
 		} else {
 
 			if obj[4] == 127 {
 				fmt.Println("Warning, zero data in manifest")
+				return 1
+			}
+
+			hash := sha1.New()
+			hash.Write([]byte(obj[0 : len(obj)-20]))
+			hash_raw := hash.Sum(nil)
+			hash_old_raw := obj[len(obj)-20:]
+
+			if bytes.Equal(hash_old_raw, hash_raw) != true {
+				fmt.Println("Hash invalid")
 				return 1
 			}
 			parse_iter(obj[4:len(obj)])
@@ -168,6 +179,11 @@ func main() {
 		}
 
 		obj_list = append(obj_list, 0x7F)
+
+		hash := sha1.New()
+		hash.Write([]byte(obj_list))
+		hash_raw := hash.Sum(nil)
+		obj_list = append(obj_list, hash_raw...)
 
 		ioutil.WriteFile(*opt_manifest, obj_list, 0644)
 
