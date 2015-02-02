@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto/sha1"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -16,17 +15,26 @@ type File_data struct {
 	Buildnum uint8
 }
 
+var File_cache = make(map[string]File_data)
+
 func obj2byte(obj *File_data) []byte {
 	obj_byte := make([]byte, 0)
+	//You got that James Dean day dream look in your eye
 	obj_byte = append(obj_byte, uint8(len(obj.Name)))
-	obj_byte = append(obj_byte, uint8(20)) //This is static, otherwise the base conversion would fuck this up
+	//And I got that red lip classic thing that you like
+	obj_byte = append(obj_byte, uint8(20)) //[1]
+	//And when we go crashing down, we come back every time.
 	obj_byte = append(obj_byte, []byte(obj.Name)...)
+	//Cause we never go out of style
 	obj_byte = append(obj_byte, []byte(obj.Hash)...)
+	//We never go out of style
 	obj_byte = append(obj_byte, obj.Buildnum)
 	obj_byte = append(obj_byte, 0x80)
 
 	return obj_byte
 }
+
+//[1] This is static, otherwise the base conversion would fuck this up
 
 var obj_list []byte
 
@@ -62,13 +70,23 @@ func iter(path string, size int) int {
 
 		if fs_type(current) == 1 {
 			f, _ := ioutil.ReadFile(current)
+
 			hash := sha1.New()
-
 			hash.Write([]byte(f))
-
 			hash_raw := hash.Sum(nil)
 
-			file_obj := File_data{current[size:len(current)], string(hash_raw), 0}
+			filename := current[size:len(current)]
+			buildnum := uint8(0)
+
+			if File_cache[filename].Name != "" {
+				if File_cache[filename].Hash != string(hash_raw) {
+					buildnum = File_cache[filename].Buildnum + uint8(1)
+				}
+			} else {
+				fmt.Println(File_cache[filename].Name)
+			}
+
+			file_obj := File_data{current[size:len(current)], string(hash_raw), buildnum}
 
 			obj_list = append(obj_list, obj2byte(&file_obj)...)
 
@@ -103,12 +121,12 @@ func parse_iter(obj []byte) {
 	}
 
 	name := string(obj[2 : name_size+2])
-	hash := hex.EncodeToString(obj[name_size+2 : hash_size+2+name_size])
+	hash := string(obj[name_size+2 : hash_size+2+name_size])
 	buildnum := obj[hash_size+2+name_size]
 
 	file_obj := File_data{name, hash, buildnum}
 
-	fmt.Println(file_obj)
+	File_cache[name] = file_obj
 
 	if obj[hash_size+4+name_size] != 127 {
 		parse_iter(obj[hash_size+4+name_size : len(obj)])
@@ -173,6 +191,16 @@ func main() {
 		path := *opt_directory + "/"
 		obj_list = []byte{0xCA, 0xFE, 0xBA, 0xBE}
 
+		if _, err := os.Stat(*opt_manifest); err == nil {
+			manifest, _ := ioutil.ReadFile(*opt_manifest)
+			fmt.Println("Manifest found, updating")
+			if parse(manifest) != 1 {
+				fmt.Println("validation failed")
+			}
+		} else {
+			fmt.Println("Manifest file not found, making a new one")
+		}
+
 		if iter(path, len(path)) == -1 {
 			fmt.Println("No folder found")
 			return
@@ -193,7 +221,11 @@ func main() {
 		manifest, _ := ioutil.ReadFile(*opt_manifest)
 		if parse(manifest) != 1 {
 			fmt.Println("validation failed")
-
+		} else {
+			fmt.Println("Loaded manifest to global hashtable")
+			for Name, Num := range File_cache {
+				fmt.Println("Name:", Name, "Version:", Num.Buildnum)
+			}
 		}
 	}
 }
