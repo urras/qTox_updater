@@ -82,8 +82,6 @@ func iter(path string, size int) int {
 				if File_cache[filename].Hash != string(hash_raw) {
 					buildnum = File_cache[filename].Buildnum + uint8(1)
 				}
-			} else {
-				fmt.Println(File_cache[filename].Name)
 			}
 
 			file_obj := File_data{current[size:len(current)], string(hash_raw), buildnum}
@@ -218,14 +216,37 @@ func main() {
 		fmt.Println("Saved manifest")
 
 	} else {
+		path := *opt_directory + "/"
+
+		if iter(path, len(path)) == -1 {
+			fmt.Println("No folder found")
+			return
+		}
+
 		manifest, _ := ioutil.ReadFile(*opt_manifest)
 		if parse(manifest) != 1 {
 			fmt.Println("validation failed")
 		} else {
 			fmt.Println("Loaded manifest to global hashtable")
-			for Name, Num := range File_cache {
-				fmt.Println("Name:", Name, "Version:", Num.Buildnum)
+			for Name, obj := range File_cache {
+
+				f, e := ioutil.ReadFile(path + Name)
+
+				if e == nil {
+					hash := sha1.New()
+					hash.Write([]byte(f))
+					hash_raw := string(hash.Sum(nil))
+
+					if obj.Hash != hash_raw {
+						fmt.Println("File " + Name + " failed validation")
+						return
+					}
+				} else {
+					fmt.Println("File " + Name + " does not exist")
+					return
+				}
 			}
+			fmt.Println("Validation passed.")
 		}
 	}
 }
