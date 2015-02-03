@@ -38,6 +38,8 @@ func obj2byte(obj *File_data) []byte {
 
 var obj_list []byte
 
+var i int
+
 func fs_type(path string) int {
 	f, err := os.Open(path)
 	if err != nil {
@@ -69,6 +71,7 @@ func iter(path string, size int) int {
 		current := path + file.Name()
 
 		if fs_type(current) == 1 {
+			i = i + 1
 			f, _ := ioutil.ReadFile(current)
 
 			hash := sha1.New()
@@ -88,13 +91,12 @@ func iter(path string, size int) int {
 
 			obj_list = append(obj_list, obj2byte(&file_obj)...)
 
+			fmt.Printf("\rFiles added: %d", i)
+
 		} else if fs_type(current) == 0 {
 			if iter(current+"/", size) != 1 {
 				return -1
 			}
-
-		} else {
-			return -1
 
 		}
 	}
@@ -160,6 +162,7 @@ func parse(obj []byte) uint8 {
 				fmt.Println("Hash invalid")
 				return 1
 			}
+			fmt.Println("Parsing manifest")
 			parse_iter(obj[4:len(obj)])
 			return 1
 		}
@@ -186,6 +189,8 @@ func main() {
 		return
 	} else if *opt_gen {
 
+		i = 0
+
 		path := *opt_directory + "/"
 		obj_list = []byte{0xCA, 0xFE, 0xBA, 0xBE}
 
@@ -194,13 +199,15 @@ func main() {
 			fmt.Println("Manifest found, updating")
 			if parse(manifest) != 1 {
 				fmt.Println("validation failed")
+			} else {
+				fmt.Println("Successfully loaded old manifest")
 			}
 		} else {
 			fmt.Println("Manifest file not found, making a new one")
 		}
 
 		if iter(path, len(path)) == -1 {
-			fmt.Println("No folder found")
+			fmt.Println("\nNo folder found")
 			return
 		}
 
@@ -213,12 +220,12 @@ func main() {
 
 		ioutil.WriteFile(*opt_manifest, obj_list, 0644)
 
-		fmt.Println("Saved manifest")
+		fmt.Println("\nSaved manifest")
 
 	} else {
 		path := *opt_directory + "/"
 
-		if iter(path, len(path)) == -1 {
+		if fs_type(path) != 0 {
 			fmt.Println("No folder found")
 			return
 		}
@@ -228,8 +235,9 @@ func main() {
 			fmt.Println("validation failed")
 		} else {
 			fmt.Println("Loaded manifest to global hashtable")
+			pass := true
 			for Name, obj := range File_cache {
-
+				i = i + 1
 				f, e := ioutil.ReadFile(path + Name)
 
 				if e == nil {
@@ -239,14 +247,20 @@ func main() {
 
 					if obj.Hash != hash_raw {
 						fmt.Println("File " + Name + " failed validation")
-						return
+						pass = false
 					}
 				} else {
 					fmt.Println("File " + Name + " does not exist")
-					return
+					pass = false
 				}
+
+				fmt.Printf("\rFiles validated: %d/%d", i, len(File_cache))
 			}
-			fmt.Println("Validation passed.")
+			if pass {
+				fmt.Println("\nValidation passed.")
+			} else {
+				fmt.Println("\nValidation failed.")
+			}
 		}
 	}
 }
