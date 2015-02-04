@@ -246,11 +246,11 @@ func main() {
 					hash_raw := string(hash.Sum(nil))
 
 					if obj.Hash != hash_raw {
-						fmt.Println("File " + Name + " failed validation")
+						fmt.Println("\nFile " + Name + " failed validation")
 						pass = false
 					}
 				} else {
-					fmt.Println("File " + Name + " does not exist")
+					fmt.Println("\nFile " + Name + " does not exist")
 					pass = false
 				}
 
